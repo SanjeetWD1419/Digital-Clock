@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Digital Clock</title>
+  <style>
+    :root{
+      --bg: #0f172a;
+      --card: #0b1220;
+      --accent: #06b6d4;
+      --muted: #94a3b8;
+      --glass: rgba(255,255,255,0.03);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background: linear-gradient(180deg, #071029 0%, #0f172a 100%);
+      color: #e6eef6;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      padding:32px;
+    }
+
+    .clock-card{
+      width: min(720px, 96%);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:16px;
+      padding:28px;
+      box-shadow: 0 10px 30px rgba(2,6,23,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+      display:flex;
+      gap:24px;
+      align-items:center;
+      justify-content:space-between;
+    }
+
+    .time{
+      display:flex;
+      align-items:baseline;
+      gap:16px;
+    }
+
+    .digits{
+      font-size:clamp(36px, 8vw, 96px);
+      font-weight:700;
+      letter-spacing:2px;
+      background: linear-gradient(90deg, var(--accent), #7c3aed 60%);
+      -webkit-background-clip:text;
+      background-clip:text;
+      color:transparent;
+      text-shadow: 0 6px 20px rgba(12,18,30,0.6);
+    }
+
+    .ampm{
+      font-size:clamp(12px, 1.8vw, 18px);
+      color:var(--muted);
+      font-weight:600;
+    }
+
+    .date{
+      text-align:right;
+      color:var(--muted);
+      font-weight:600;
+      min-width:200px;
+    }
+
+    .controls{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      margin-top:8px;
+    }
+
+    .btn{
+      background:var(--glass);
+      border:1px solid rgba(255,255,255,0.04);
+      color:var(--muted);
+      padding:8px 12px;
+      border-radius:10px;
+      font-weight:600;
+      cursor:pointer;
+      backdrop-filter: blur(6px);
+    }
+
+    .btn.toggle-active{
+      background:linear-gradient(90deg, rgba(6,182,212,0.12), rgba(124,58,237,0.08));
+      color:var(--accent);
+      border-color: rgba(6,182,212,0.18);
+    }
+
+    .small{
+      font-size:13px;
+      color:var(--muted);
+    }
+
+    footer.small{
+      margin-top:12px;
+      color:var(--muted);
+    }
+
+    @media (max-width:560px){
+      .clock-card{flex-direction:column;align-items:flex-start}
+      .date{width:100%;text-align:left}
+    }
+  </style>
+</head>
+<body>
+  <div class="clock-card" role="region" aria-label="Digital clock">
+    <div>
+      <div class="time">
+        <div class="digits" id="time">00:00:00</div>
+        <div class="ampm" id="ampm">AM</div>
+      </div>
+
+      <div class="controls">
+        <button class="btn" id="toggleFormat">24-hour</button>
+        <button class="btn" id="toggleSeconds">Hide seconds</button>
+        <button class="btn" id="toggleTheme">Toggle theme</button>
+      </div>
+      <div class="small" id="timezoneInfo">Timezone: local</div>
+    </div>
+
+    <div class="date">
+      <div id="weekday">Wednesday</div>
+      <div id="fullDate">January 1, 1970</div>
+      <div class="small" id="offset">UTC+0</div>
+    </div>
+  </div>
+
+  <script>
+    // Digital Clock Script
+    (function(){
+      const timeEl = document.getElementById('time');
+      const ampmEl = document.getElementById('ampm');
+      const weekdayEl = document.getElementById('weekday');
+      const fullDateEl = document.getElementById('fullDate');
+      const offsetEl = document.getElementById('offset');
+      const timezoneInfoEl = document.getElementById('timezoneInfo');
+
+      const btnFormat = document.getElementById('toggleFormat');
+      const btnSeconds = document.getElementById('toggleSeconds');
+      const btnTheme = document.getElementById('toggleTheme');
+
+      // settings stored in localStorage so they persist
+      const settings = {
+        use24Hour: localStorage.getItem('clock_24h') === '1',
+        showSeconds: localStorage.getItem('clock_seconds') !== '0',
+        dark: localStorage.getItem('clock_dark') !== '0'
+      };
+
+      function applyButtons(){
+        btnFormat.textContent = settings.use24Hour ? '24-hour' : '12-hour';
+        btnSeconds.textContent = settings.showSeconds ? 'Hide seconds' : 'Show seconds';
+        btnFormat.classList.toggle('toggle-active', settings.use24Hour);
+        btnSeconds.classList.toggle('toggle-active', settings.showSeconds);
+        btnTheme.classList.toggle('toggle-active', settings.dark);
+      }
+
+      function updateClock(){
+        const now = new Date();
+        const locale = navigator.language || 'en-US';
+
+        // time parts
+        let hours = now.getHours();
+        const minutes = now.getMinutes();
+        const seconds = now.getSeconds();
+
+        let ampm = '';
+        if(!settings.use24Hour){
+          ampm = hours >= 12 ? 'PM' : 'AM';
+          hours = hours % 12 || 12; // convert to 12-hour
+        }
+
+        // format with leading zeros
+        const hh = String(hours).padStart(2, '0');
+        const mm = String(minutes).padStart(2, '0');
+        const ss = String(seconds).padStart(2, '0');
+
+        timeEl.textContent = settings.showSeconds ? `${hh}:${mm}:${ss}` : `${hh}:${mm}`;
+        ampmEl.textContent = settings.use24Hour ? '' : ampm;
+
+        // date
+        const weekday = now.toLocaleDateString(locale, { weekday: 'long' });
+        const fullDate = now.toLocaleDateString(locale, { year:'numeric', month:'long', day:'numeric' });
+        weekdayEl.textContent = weekday;
+        fullDateEl.textContent = fullDate;
+
+        // timezone offset
+        const offsetMinutes = -now.getTimezoneOffset(); // minutes ahead of UTC
+        const sign = offsetMinutes >= 0 ? '+' : '-';
+        const absMin = Math.abs(offsetMinutes);
+        const offHours = Math.floor(absMin/60);
+        const offMins = absMin % 60;
+        offsetEl.textContent = `UTC${sign}${String(offHours).padStart(2,'0')}:${String(offMins).padStart(2,'0')}`;
+
+        timezoneInfoEl.textContent = `Timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone || 'local'}`;
+      }
+
+      // event handlers
+      btnFormat.addEventListener('click', ()=>{
+        settings.use24Hour = !settings.use24Hour;
+        localStorage.setItem('clock_24h', settings.use24Hour ? '1' : '0');
+        applyButtons();
+        updateClock();
+      });
+
+      btnSeconds.addEventListener('click', ()=>{
+        settings.showSeconds = !settings.showSeconds;
+        localStorage.setItem('clock_seconds', settings.showSeconds ? '1' : '0');
+        applyButtons();
+        updateClock();
+      });
+
+      btnTheme.addEventListener('click', ()=>{
+        settings.dark = !settings.dark;
+        localStorage.setItem('clock_dark', settings.dark ? '1' : '0');
+        document.documentElement.style.setProperty('--bg', settings.dark ? '#0f172a' : '#f6f7fb');
+        document.body.style.background = settings.dark ? 'linear-gradient(180deg, #071029 0%, #0f172a 100%)' : 'linear-gradient(180deg,#f8fafc 0%, #eef2ff 100%)';
+        applyButtons();
+      });
+
+      // initialize
+      applyButtons();
+      // ensure theme applied initially (light mode if dark===false)
+      if(!settings.dark){
+        document.documentElement.style.setProperty('--bg','#f6f7fb');
+        document.body.style.background = 'linear-gradient(180deg,#f8fafc 0%, #eef2ff 100%)';
+        document.documentElement.style.setProperty('--accent', '#2563eb');
+        document.documentElement.style.setProperty('--muted', '#475569');
+      }
+
+      // update every 200ms for smooth seconds update; throttle if seconds hidden
+      function loop(){
+        updateClock();
+        setTimeout(loop, settings.showSeconds ? 200 : 1000);
+      }
+      loop();
+
+      // accessibility: announce time on double-click
+      timeEl.addEventListener('dblclick', ()=>{
+        const now = new Date();
+        const msg = `The time is ${timeEl.textContent} ${ampmEl.textContent}`;
+        if('speechSynthesis' in window){
+          const utter = new SpeechSynthesisUtterance(msg);
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(utter);
+        } else {
+          alert(msg);
+        }
+      });
+
+    })();
+  </script>
+</body>
+</html>
